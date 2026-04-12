@@ -1,0 +1,12 @@
+{
+  "name": "career-day-game",
+  "version": "1.0.0",
+  "description": "Career day game demo for 3rd graders — built live with kid prompts",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

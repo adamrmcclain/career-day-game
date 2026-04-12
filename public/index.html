@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Career Day Game!</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Courier New', Courier, monospace;
+      color: white;
+      user-select: none;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+      color: #4ecca3;
+      letter-spacing: 2px;
+      text-shadow: 0 0 20px #4ecca3aa;
+    }
+
+    #gameCanvas {
+      border: 3px solid #4ecca3;
+      border-radius: 6px;
+      box-shadow: 0 0 30px #4ecca355;
+      /* Keep pixel art crisp */
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    #controls {
+      margin-top: 12px;
+      font-size: 1rem;
+      opacity: 0.6;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Career Day Game!</h1>
+  <canvas id="gameCanvas" width="1100" height="700"></canvas>
+  <div id="controls">← → arrow keys to move</div>
+  <script src="game.js"></script>
+</body>
+</html>
