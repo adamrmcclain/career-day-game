@@ -11,7 +11,7 @@ unknown until the day.
 
 ```bash
 npm start
-# Open http://localhost:3000
+# Open http://localhost:3500
 ```
 
 No dependencies — uses only Node's built-in `http` and `fs` modules.
@@ -41,12 +41,41 @@ career-day/
 | No bundler / no framework | Less to break live on stage; everything in one `game.js` |
 | Zero npm dependencies | `npm start` just works — nothing to install |
 
-## Current game state (baseline)
+## Branch map — presentation safety net
 
-- **Character** moves with arrow keys (← ↑ → ↓) at 5 px/frame
-- Character is clamped to canvas bounds (can't walk off screen)
+Each branch is a complete, working snapshot. If something breaks during the demo,
+`git checkout <branch>` and refresh the browser to jump to a safe state.
+
+```
+main                  ← bare-bones baseline (left/right only, no jump)
+└── jumping-test      ← W to jump, physics, 1100×700 canvas
+    └── feature/obstacle  ← + wooden crate to jump over
+        └── feature/npc   ← + NPC character (press A) says "Go Wildcats!"
+            └── feature/duck  ← + ↓ to duck (sprite squishes)
+```
+
+### Switching branches mid-demo
+
+```bash
+git checkout feature/obstacle   # e.g. if duck feature breaks
+# Cmd+R in browser — no restart needed
+```
+
+### What each branch adds
+
+| Branch | New feature | Key(s) |
+|---|---|---|
+| `jumping-test` | Jump to halfway up screen | W |
+| `feature/obstacle` | Wooden crate — must jump over it | — |
+| `feature/npc` | Construction worker NPC with speech bubble | A |
+| `feature/duck` | Duck / crouch (sprite squishes 50%) | ↓ |
+
+## Current game state (baseline — `main`)
+
+- **Character** moves left/right only (← →) at 5 px/frame
+- Character locked to ground, clamped to canvas bounds
 - Background: sky gradient + sun + clouds + grass strip
-- Canvas: 800 × 560
+- Canvas: 1100 × 700
 
 ## How to extend (for kid prompts)
 
@@ -85,3 +114,5 @@ To swap: `cp images/kenney_blocky-characters_20/Previews/character-X.png public/
   otherwise just Cmd+R after each change
 - Keep `game.js` open in your editor so changes are visible to the audience
 - Each kid prompt is a new git-style "feature" — narrate what you're adding
+- **Start on `feature/duck`** so all features are visible from the beginning,
+  then demo how each one was added by walking through the branch history
