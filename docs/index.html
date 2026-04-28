@@ -46,12 +46,45 @@
       opacity: 0.6;
       letter-spacing: 1px;
     }
+
+    #difficulty {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    #difficulty button {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 1rem;
+      letter-spacing: 2px;
+      padding: 8px 22px;
+      background: transparent;
+      color: #4ecca3;
+      border: 2px solid #4ecca3;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    #difficulty button:hover {
+      background: #4ecca322;
+    }
+
+    #difficulty button.active {
+      background: #4ecca3;
+      color: #1a1a2e;
+    }
   </style>
 </head>
 <body>
   <h1>Career Day Game!</h1>
+  <div id="difficulty">
+    <button data-difficulty="easy">EASY</button>
+    <button data-difficulty="medium" class="active">MEDIUM</button>
+    <button data-difficulty="hard">HARD</button>
+  </div>
   <canvas id="gameCanvas" width="1100" height="700"></canvas>
-  <div id="controls">← → move &nbsp;·&nbsp; W jump (tap twice for double jump) &nbsp;·&nbsp; D dance</div>
+  <div id="controls">← → move &nbsp;·&nbsp; W jump (tap twice for double jump) &nbsp;·&nbsp; D dance for points!</div>
   <script src="game.js"></script>
 </body>
 </html>

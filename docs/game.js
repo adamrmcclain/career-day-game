@@ -18,6 +18,9 @@ const GROUND_Y      = Math.round(canvas.height * 0.72); // where the grass start
 const GRAVITY       = 1.2;  // pixels per frame^2
 const JUMP_VELOCITY = -22;  // negative = upward
 
+// Monster speed per difficulty — medium matches the original game
+const DIFFICULTY_SPEEDS = { easy: 2, medium: 3, hard: 5 };
+
 // ---- Assets ----
 const assets = {};
 
@@ -60,10 +63,100 @@ const state = {
   },
 
   keys: {},       // tracks which keys are currently held
+
+  // Score + leaderboard
+  difficulty: 'medium',
+  score: 0,
+  scoreSubmitted: false,
+  nameEntry: {
+    active: false,
+    letters: ['', '', ''],
+    index: 0,
+  },
+  leaderboard: [],   // populated from sessionStorage in init()
 };
+
+// ---- Leaderboard (sessionStorage — clears when the tab closes) ----
+const LEADERBOARD_KEY = 'careerDayLeaderboard';
+const LEADERBOARD_MAX = 5;
+
+function loadLeaderboard() {
+  try {
+    return JSON.parse(sessionStorage.getItem(LEADERBOARD_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveLeaderboard() {
+  sessionStorage.setItem(LEADERBOARD_KEY, JSON.stringify(state.leaderboard));
+}
+
+function submitScore(name, score) {
+  state.leaderboard.push({ name, score, difficulty: state.difficulty });
+  state.leaderboard.sort((a, b) => b.score - a.score);
+  state.leaderboard = state.leaderboard.slice(0, LEADERBOARD_MAX);
+  saveLeaderboard();
+}
+
+// ---- Difficulty ----
+function setDifficulty(d) {
+  if (!(d in DIFFICULTY_SPEEDS)) return;
+  state.difficulty = d;
+  state.monster.speed = DIFFICULTY_SPEEDS[d];
+  document.querySelectorAll('#difficulty button').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.difficulty === d);
+    btn.blur();   // hand keyboard focus back to the game
+  });
+}
+
+// ---- Restart (called on click after game over) ----
+function restart() {
+  Object.assign(state.player, {
+    x: canvas.width / 2 - PLAYER_SIZE / 2,
+    y: GROUND_Y - PLAYER_SIZE + 10,
+    vy: 0,
+    onGround: true,
+    jumpsLeft: 2,
+    angle: 0,
+    danceTime: 0,
+    health: 100,
+    iframes: 0,
+    dead: false,
+    deathTime: 0,
+  });
+  Object.assign(state.monster, { x: 50, dir: 1 });
+  state.score = 0;
+  state.scoreSubmitted = false;
+  state.nameEntry = { active: false, letters: ['', '', ''], index: 0 };
+  state.keys = {};
+}
 
 // ---- Input ----
 document.addEventListener('keydown', (e) => {
+  // Arcade-style 3-letter name entry after death — capture letters here and
+  // bail out so the rest of the game doesn't react to typing.
+  if (state.nameEntry.active) {
+    const ne = state.nameEntry;
+    if (e.key === 'Backspace' && ne.index > 0) {
+      ne.index -= 1;
+      ne.letters[ne.index] = '';
+      e.preventDefault();
+      return;
+    }
+    if (/^[a-zA-Z]$/.test(e.key) && ne.index < 3) {
+      ne.letters[ne.index] = e.key.toUpperCase();
+      ne.index += 1;
+      if (ne.index === 3) {
+        submitScore(ne.letters.join(''), state.score);
+        ne.active = false;
+        state.scoreSubmitted = true;
+      }
+      e.preventDefault();
+    }
+    return;
+  }
+
   // Jump on the initial press, not while the key is held — lets us double-jump
   if (!e.repeat && !state.player.dead && (e.key === 'w' || e.key === 'W') && state.player.jumpsLeft > 0) {
     state.player.vy = JUMP_VELOCITY;
@@ -82,6 +175,11 @@ document.addEventListener('keyup', (e) => {
   state.keys[e.key] = false;
 });
 
+// Click anywhere on the canvas to restart once the score has been submitted.
+canvas.addEventListener('click', () => {
+  if (state.player.dead && state.scoreSubmitted) restart();
+});
+
 // ---- Update ----
 function update() {
   const { player, keys } = state;
@@ -92,6 +190,10 @@ function update() {
     const targetAngle = Math.PI / 2;
     if (player.angle < targetAngle) {
       player.angle = Math.min(targetAngle, player.angle + 0.08);
+    }
+    // Once the fall has finished, prompt for initials (only on first death)
+    if (player.deathTime > 90 && !state.scoreSubmitted && !state.nameEntry.active) {
+      state.nameEntry.active = true;
     }
     // Monster keeps walking even after death
     const m = state.monster;
@@ -131,6 +233,7 @@ function update() {
   if (dancing) {
     player.danceTime += 1;
     player.angle = Math.sin(player.danceTime * 0.35) * 0.5; // ~±28°
+    state.score += 5;   // points pile up while you dance
   } else if (player.onGround) {
     player.danceTime = 0;
   }
@@ -233,29 +336,117 @@ function render() {
   ctx.restore();
 
   drawHealthBar();
+  drawScore();
 
   if (p.dead) drawGameOver();
+}
+
+function drawScore() {
+  const x = canvas.width - 220, y = 20, w = 200, h = 24;
+
+  ctx.fillStyle = '#000';
+  ctx.globalAlpha = 0.4;
+  ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(x, y, w, h);
+
+  ctx.fillStyle = '#ffe066';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`SCORE  ${state.score}`, x + w - 10, y + h / 2 + 1);
+  ctx.textAlign = 'start';
 }
 
 function drawGameOver() {
   // Banner appears about half a second after death so it lands with the fall
   if (state.player.deathTime < 30) return;
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  ctx.fillStyle = '#ff5252';
-  ctx.font = 'bold 96px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2);
+
+  ctx.fillStyle = '#ff5252';
+  ctx.font = 'bold 80px sans-serif';
+  ctx.fillText('GAME OVER', canvas.width / 2, 130);
 
   ctx.fillStyle = '#fff';
-  ctx.font = '24px sans-serif';
-  ctx.fillText('Refresh to try again', canvas.width / 2, canvas.height / 2 + 70);
+  ctx.font = 'bold 30px sans-serif';
+  ctx.fillText(`Score: ${state.score}`, canvas.width / 2, 195);
 
-  // Reset alignment so other text isn't affected
+  if (state.nameEntry.active) {
+    drawNameEntry();
+  } else if (state.scoreSubmitted) {
+    drawLeaderboard();
+    ctx.fillStyle = '#4ecca3';
+    ctx.font = '22px sans-serif';
+    ctx.fillText('Click anywhere to play again', canvas.width / 2, canvas.height - 50);
+  }
+
   ctx.textAlign = 'start';
+}
+
+function drawNameEntry() {
+  const ne = state.nameEntry;
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '22px sans-serif';
+  ctx.fillText('ENTER YOUR INITIALS', canvas.width / 2, 270);
+
+  const slot = 80, gap = 24;
+  const totalW = slot * 3 + gap * 2;
+  const startX = canvas.width / 2 - totalW / 2;
+  const y = 310;
+
+  for (let i = 0; i < 3; i++) {
+    const x = startX + i * (slot + gap);
+    const isCurrent = i === ne.index;
+
+    ctx.strokeStyle = isCurrent ? '#4ecca3' : '#666';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(x, y, slot, slot);
+
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 56px monospace';
+    const blink = Math.floor(state.player.deathTime / 20) % 2 === 0;
+    const letter = ne.letters[i] || (isCurrent && blink ? '_' : '');
+    ctx.fillText(letter, x + slot / 2, y + slot / 2 + 4);
+  }
+
+  ctx.fillStyle = '#aaa';
+  ctx.font = '18px sans-serif';
+  ctx.fillText('type 3 letters · Backspace to fix', canvas.width / 2, y + slot + 38);
+}
+
+function drawLeaderboard() {
+  const lb = state.leaderboard;
+
+  ctx.fillStyle = '#ffe066';
+  ctx.font = 'bold 28px sans-serif';
+  ctx.fillText('LEADERBOARD', canvas.width / 2, 270);
+
+  if (lb.length === 0) {
+    ctx.fillStyle = '#aaa';
+    ctx.font = '20px sans-serif';
+    ctx.fillText('(no scores yet)', canvas.width / 2, 320);
+    return;
+  }
+
+  ctx.font = 'bold 26px monospace';
+  for (let i = 0; i < lb.length; i++) {
+    const e = lb[i];
+    const rowY = 320 + i * 38;
+    // Highlight the entry the player just set (top score with same name+score)
+    const justSet = e.name === state.nameEntry.letters.join('') && e.score === state.score;
+    ctx.fillStyle = justSet ? '#4ecca3' : '#fff';
+    const tag = (e.difficulty || 'medium')[0].toUpperCase();   // E / M / H
+    const line = `${i + 1}.  ${e.name}  [${tag}]  ${String(e.score).padStart(6, ' ')}`;
+    ctx.fillText(line, canvas.width / 2, rowY);
+  }
 }
 
 function drawHealthBar() {
@@ -292,6 +483,11 @@ function gameLoop() {
 
 // ---- Start ----
 async function init() {
+  state.leaderboard = loadLeaderboard();
+  document.querySelectorAll('#difficulty button').forEach((btn) => {
+    btn.addEventListener('click', () => setDifficulty(btn.dataset.difficulty));
+  });
+  setDifficulty('medium');
   await Promise.all([
     loadImage('player',  'assets/character.png'),
     loadImage('monster', 'assets/monster.png'),
