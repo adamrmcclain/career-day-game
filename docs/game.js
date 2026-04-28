@@ -130,32 +130,15 @@ function restart() {
   state.scoreSubmitted = false;
   state.nameEntry = { active: false, letters: ['', '', ''], index: 0 };
   state.keys = {};
+  const ni = document.getElementById('nameInput');
+  if (ni) { ni.value = ''; ni.blur(); }
 }
 
 // ---- Input ----
 document.addEventListener('keydown', (e) => {
-  // Arcade-style 3-letter name entry after death — capture letters here and
-  // bail out so the rest of the game doesn't react to typing.
-  if (state.nameEntry.active) {
-    const ne = state.nameEntry;
-    if (e.key === 'Backspace' && ne.index > 0) {
-      ne.index -= 1;
-      ne.letters[ne.index] = '';
-      e.preventDefault();
-      return;
-    }
-    if (/^[a-zA-Z]$/.test(e.key) && ne.index < 3) {
-      ne.letters[ne.index] = e.key.toUpperCase();
-      ne.index += 1;
-      if (ne.index === 3) {
-        submitScore(ne.letters.join(''), state.score);
-        ne.active = false;
-        state.scoreSubmitted = true;
-      }
-      e.preventDefault();
-    }
-    return;
-  }
+  // While name entry is active, the hidden <input> below handles all typing —
+  // don't let the game eat keys (jump, etc.) during initials.
+  if (state.nameEntry.active) return;
 
   // Jump on the initial press, not while the key is held — lets us double-jump
   if (!e.repeat && !state.player.dead && (e.key === 'w' || e.key === 'W') && state.player.jumpsLeft > 0) {
@@ -175,9 +158,74 @@ document.addEventListener('keyup', (e) => {
   state.keys[e.key] = false;
 });
 
-// Click anywhere on the canvas to restart once the score has been submitted.
+// Click / tap anywhere on the canvas to restart once the score has been submitted.
 canvas.addEventListener('click', () => {
   if (state.player.dead && state.scoreSubmitted) restart();
+});
+
+// ---- Name entry via hidden <input> ----
+// Using the input element (instead of synthetic keydown events) means the iOS
+// software keyboard pops up on tap — synthetic keydown is unreliable on mobile.
+const nameInput = document.getElementById('nameInput');
+
+function activateNameEntry() {
+  state.nameEntry.active = true;
+  if (nameInput) {
+    nameInput.value = '';
+    nameInput.focus();
+  }
+}
+
+if (nameInput) {
+  nameInput.addEventListener('input', () => {
+    if (!state.nameEntry.active) return;
+    const ne = state.nameEntry;
+    const chars = (nameInput.value || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 3);
+    ne.letters = ['', '', ''];
+    for (let i = 0; i < chars.length; i++) ne.letters[i] = chars[i];
+    ne.index = chars.length;
+    if (ne.index >= 3) {
+      submitScore(ne.letters.join(''), state.score);
+      ne.active = false;
+      state.scoreSubmitted = true;
+      nameInput.blur();
+    }
+  });
+
+  // Refocus if the user accidentally taps away while still entering initials
+  nameInput.addEventListener('blur', () => {
+    if (state.nameEntry.active) setTimeout(() => nameInput.focus(), 0);
+  });
+}
+
+// ---- Touch controls — virtual buttons synthesize keyboard events ----
+function pressKey(key) {
+  document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+}
+
+function releaseKey(key) {
+  document.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+}
+
+document.querySelectorAll('.touch-btn').forEach((btn) => {
+  const key = btn.dataset.key;
+  const start = (e) => {
+    e.preventDefault();
+    btn.classList.add('pressed');
+    pressKey(key);
+  };
+  const end = (e) => {
+    e.preventDefault();
+    btn.classList.remove('pressed');
+    releaseKey(key);
+  };
+  btn.addEventListener('touchstart',  start, { passive: false });
+  btn.addEventListener('touchend',    end,   { passive: false });
+  btn.addEventListener('touchcancel', end,   { passive: false });
+  // Mouse fallback so the buttons also work for desktop testing
+  btn.addEventListener('mousedown',  start);
+  btn.addEventListener('mouseup',    end);
+  btn.addEventListener('mouseleave', end);
 });
 
 // ---- Update ----
@@ -193,7 +241,7 @@ function update() {
     }
     // Once the fall has finished, prompt for initials (only on first death)
     if (player.deathTime > 90 && !state.scoreSubmitted && !state.nameEntry.active) {
-      state.nameEntry.active = true;
+      activateNameEntry();
     }
     // Monster keeps walking even after death
     const m = state.monster;
