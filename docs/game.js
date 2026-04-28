@@ -131,7 +131,9 @@ function restart() {
   state.nameEntry = { active: false, letters: ['', '', ''], index: 0 };
   state.keys = {};
   const ni = document.getElementById('nameInput');
+  const gw = document.getElementById('gameWrap');
   if (ni) { ni.value = ''; ni.blur(); }
+  if (gw) gw.classList.remove('entering-name');
 }
 
 // ---- Input ----
@@ -163,17 +165,30 @@ canvas.addEventListener('click', () => {
   if (state.player.dead && state.scoreSubmitted) restart();
 });
 
-// ---- Name entry via hidden <input> ----
-// Using the input element (instead of synthetic keydown events) means the iOS
-// software keyboard pops up on tap — synthetic keydown is unreliable on mobile.
+// ---- Name entry via overlay <input> ----
+// During name entry the input fills the canvas and turns on pointer-events.
+// A tap on the canvas is therefore a tap on the input itself — that real user
+// gesture is what iOS Safari requires before it will summon the keyboard.
 const nameInput = document.getElementById('nameInput');
+const gameWrap  = document.getElementById('gameWrap');
+const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
 
 function activateNameEntry() {
   state.nameEntry.active = true;
-  if (nameInput) {
-    nameInput.value = '';
-    nameInput.focus();
-  }
+  if (!nameInput) return;
+  nameInput.value = '';
+  gameWrap.classList.add('entering-name');
+  // On desktop this brings up focus immediately; on iOS it's a no-op until
+  // the user taps the (now overlay) input, which fires focus inside a gesture.
+  nameInput.focus();
+}
+
+function finishNameEntry() {
+  state.nameEntry.active = false;
+  state.scoreSubmitted = true;
+  if (!nameInput) return;
+  gameWrap.classList.remove('entering-name');
+  nameInput.blur();
 }
 
 if (nameInput) {
@@ -186,15 +201,8 @@ if (nameInput) {
     ne.index = chars.length;
     if (ne.index >= 3) {
       submitScore(ne.letters.join(''), state.score);
-      ne.active = false;
-      state.scoreSubmitted = true;
-      nameInput.blur();
+      finishNameEntry();
     }
-  });
-
-  // Refocus if the user accidentally taps away while still entering initials
-  nameInput.addEventListener('blur', () => {
-    if (state.nameEntry.active) setTimeout(() => nameInput.focus(), 0);
   });
 }
 
@@ -467,7 +475,10 @@ function drawNameEntry() {
 
   ctx.fillStyle = '#aaa';
   ctx.font = '18px sans-serif';
-  ctx.fillText('type 3 letters · Backspace to fix', canvas.width / 2, y + slot + 38);
+  const hint = isTouchDevice
+    ? 'tap screen, then type 3 letters'
+    : 'type 3 letters · Backspace to fix';
+  ctx.fillText(hint, canvas.width / 2, y + slot + 38);
 }
 
 function drawLeaderboard() {

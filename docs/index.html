@@ -101,13 +101,28 @@
       color: #1a1a2e;
     }
 
-    /* Hidden input — focused during name entry to summon the OS keyboard */
+    /* Invisible input that overlays the canvas during name entry. Pointer
+       events are off by default so dance/jump taps hit the canvas; flipped to
+       auto while entering initials so a tap is a real user gesture on the
+       input itself — required for iOS Safari to summon the keyboard. */
     #nameInput {
       position: absolute;
-      left: -9999px;
-      top: -9999px;
+      inset: 0;
+      width: 100%;
+      height: 100%;
       opacity: 0;
+      font-size: 16px;   /* prevents iOS auto-zoom on focus */
+      background: transparent;
+      border: none;
+      color: transparent;
+      caret-color: transparent;
       pointer-events: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #gameWrap.entering-name #nameInput {
+      pointer-events: auto;
+      cursor: text;
     }
 
     #controls {
@@ -165,8 +180,8 @@
         <button class="touch-btn" data-key="w" aria-label="Jump">JUMP</button>
       </div>
     </div>
+    <input id="nameInput" type="text" maxlength="3" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="text" aria-label="Enter your initials">
   </div>
-  <input id="nameInput" type="text" maxlength="3" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" inputmode="text" aria-label="Enter your initials">
   <div id="controls">← → move &nbsp;·&nbsp; W jump (tap twice for double jump) &nbsp;·&nbsp; D dance for points!</div>
   <script src="game.js"></script>
 </body>
